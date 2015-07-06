@@ -167,7 +167,7 @@ def sharee_one(step):
 
     # Accept the remote shares for user2
     user2 = "%s%i" % (config.oc_account_name, 2)
-    openShares = list_remote_share(user2)
+    openShares = list_open_remote_share(user2)
     for share in openShares:
         accept_remote_share(user2, int(share['id']))
     sleep(5)
