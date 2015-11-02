@@ -1,9 +1,7 @@
+from smashbox.ocutilities.locking import *
 from smashbox.utilities import *
-from functools import wraps
-import errno
 import os
 import signal
-import owncloud
 
 __doc__ = """
 
@@ -34,45 +32,13 @@ Data Providers:
 """
 
 
-LOCK_NONE = 0
-LOCK_SHARED = 1
-LOCK_EXCLUSIVE = 2
-
-ALL_OPERATIONS = [
-    # a new file can be uploaded/created (file target does not exist)
-    'upload',
-    # a file can overwrite an existing one
-    'upload_overwrite',
-    # rename file to new name, all within the shared folder
-    'rename',
-    # move a file from outside the shared folder into the shared folder
-    'move_in',
-    # move a file from outside the shared folder and overwrite a file inside the shared folder
-    # (note: SabreDAV automatically deletes the target file first before moving, so requires DELETE permission too)
-    'move_in_overwrite',
-    # move a file already in the shared folder into a subdir within the shared folder
-    'move_in_subdir',
-    # move a file already in the shared folder into a subdir within the shared folder and overwrite an existing file there
-    'move_in_subdir_overwrite',
-    # move a file to outside of the shared folder
-    'move_out',
-    # move a file out of a subdir of the shared folder into the shared folder
-    'move_out_subdir',
-    # delete a file inside the shared folder
-    'delete',
-    # create folder inside the shared folder
-    'mkdir',
-    # delete folder inside the shared folder
-    'rmdir',
-]
-
 SHARED_DIR_NAME = 'shared-dir'
 
 testsets = [
     {
         'locks': [
             {
-                'lock': LOCK_EXCLUSIVE,
+                'lock': LockProvider.LOCK_EXCLUSIVE,
                 'path': SHARED_DIR_NAME
             }
         ]
@@ -123,9 +89,9 @@ def owner_worker(step):
 
     try:
         run_ocsync_timeout(d)
-    except TimeoutError:
+    except TimeoutError as err:
         # FIXME Issue raised https://github.com/owncloud/client/issues/4037
-        error_check(False, 'Sync client did not terminate within 10 seconds')
+        logger.warning(err.message)
 
     step(7, 'Unlock item and sync again')
 
@@ -151,99 +117,20 @@ def owner_worker(step):
     lock_provider.unlock()
 
 
-#  TODO ove this into cernbox
+#  TODO move the block below into cernbox
 class TimeoutError(Exception):
     pass
 
 
-#  TODO ove this into cernbox
-def timeout(seconds=10, error_message=os.strerror(errno.ETIME)):
-    def decorator(func):
-        def _handle_timeout(signum, frame):
-            raise TimeoutError(error_message)
-
-        def wrapper(*args, **kwargs):
-            signal.signal(signal.SIGALRM, _handle_timeout)
-            signal.alarm(seconds)
-            try:
-                result = func(*args, **kwargs)
-            finally:
-                signal.alarm(0)
-            return result
-
-        return wraps(func)(wrapper)
-
-    return decorator
+def handler(signum, frame):
+    raise TimeoutError('Sync client did not terminate in time')
 
 
-#  TODO ove this into cernbox
-@timeout(10)
-def run_ocsync_timeout(local_folder, remote_folder="", n=None, user_num=None):
+def run_ocsync_timeout(local_folder, remote_folder="", n=None, user_num=None, seconds=10):
+    signal.signal(signal.SIGALRM, handler)
+    signal.alarm(seconds)
+
+    # This run_ocsync() may hang indefinitely
     run_ocsync(local_folder, remote_folder, n, user_num)
 
-
-#  TODO Add docs
-class LockProvider:
-    def __init__(self, oc_api):
-        self.oc_api = oc_api
-
-    def lock(self, lock_level, user, path):
-        try:
-            self.oc_api.make_ocs_request(
-                'POST',
-                'dev',
-                'files_lockprovisioning/%i/%s/%s' % (lock_level, user, path)
-            )
-        except owncloud.ResponseError as err:
-            logger.error(err.get_resource_body())
-            raise err
-
-    def change_lock(self, lock_level, user, path):
-        try:
-            self.oc_api.make_ocs_request(
-                'PUT',
-                'dev',
-                'files_lockprovisioning/%i/%s/%s' % (lock_level, user, path)
-            )
-        except owncloud.ResponseError as err:
-            logger.error(err.get_resource_body())
-            raise err
-
-    def is_locked(self, lock_level, user, path):
-        try:
-            kwargs = {'accepted_codes':  [100, 101]}
-            res = self.oc_api.make_ocs_request(
-                'GET',
-                'dev',
-                'files_lockprovisioning/%i/%s/%s' % (lock_level, user, path),
-                **kwargs
-            )
-
-            import xml.etree.ElementTree as ET
-            tree = ET.fromstring(res.content)
-            code_el = tree.find('meta/statuscode')
-
-            return int(code_el.text) == 100
-
-        except owncloud.ResponseError as err:
-            logger.error(err.get_resource_body())
-            raise err
-
-    def unlock(self, lock_level=None, user=None, path=None):
-        ocs_path = 'files_lockprovisioning'
-
-        if lock_level is not None:
-            ocs_path = '%s/%i' % (ocs_path, lock_level)
-
-            if user is not None:
-                ocs_path = '%s/%s/%s' % (ocs_path, user, path)
-
-        try:
-            self.oc_api.make_ocs_request(
-                'DELETE',
-                'dev',
-                ocs_path
-            )
-        except owncloud.ResponseError as err:
-            logger.error(err.get_resource_body())
-            raise err
+    signal.alarm(0)
