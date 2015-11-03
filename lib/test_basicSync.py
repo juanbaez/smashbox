@@ -17,41 +17,41 @@ Note on effects of removing local state db (1.6):
 
 """
 
-from smashbox.utilities import * 
+from smashbox.utilities import *
 
 import glob
 
-filesizeKB = int(config.get('basicSync_filesizeKB',10000))
+filesizeKB = int(config.get('basicSync_filesizeKB',1000000))
 
-# True => remove local sync db on the loser 
-# False => keep the loser 
+# True => remove local sync db on the loser
+# False => keep the loser
 rmLocalStateDB = bool(config.get('basicSync_rmLocalStateDB',False))
 
 
 testsets = [
-        { 'basicSync_filesizeKB': 1, 
+        { 'basicSync_filesizeKB': 2000000,
           'basicSync_rmLocalStateDB':False
         },
-        { 'basicSync_filesizeKB': 5000, 
+        { 'basicSync_filesizeKB': 500000,
           'basicSync_rmLocalStateDB':False
         },
-        { 'basicSync_filesizeKB': 15000, 
+        { 'basicSync_filesizeKB': 7000000,
           'basicSync_rmLocalStateDB':False
         },
-        { 'basicSync_filesizeKB': 50000, 
+        { 'basicSync_filesizeKB': 9000000,
           'basicSync_rmLocalStateDB':False
         },
 
-        { 'basicSync_filesizeKB': 1, 
+        { 'basicSync_filesizeKB': 2000000,
           'basicSync_rmLocalStateDB':True
         },
-        { 'basicSync_filesizeKB': 5000, 
+        { 'basicSync_filesizeKB': 500000,
           'basicSync_rmLocalStateDB':True
         },
-        { 'basicSync_filesizeKB': 15000, 
+        { 'basicSync_filesizeKB': 7000000,
           'basicSync_rmLocalStateDB':True
         },
-        { 'basicSync_filesizeKB': 50000, 
+        { 'basicSync_filesizeKB': 9000000, 
           'basicSync_rmLocalStateDB':True
         }
 ]
@@ -71,7 +71,7 @@ def expect_deleted_files(d,expected_deleted_files):
 
     for fn in expected_deleted_files:
         error_check(any([fn in dfn for dfn in actual_deleted_files]), "expected deleted file for %s not found"%fn)
- 
+
 
 def expect_conflict_files(d,expected_conflict_files):
     actual_conflict_files = glob.glob(os.path.join(d,'*_conflict-*-*'))
@@ -87,14 +87,14 @@ def expect_conflict_files(d,expected_conflict_files):
 
     for bfn in exp_basefns:
         error_check(any([bfn in fn for fn in actual_conflict_files]), "expected conflict file for %s not found"%bfn)
-    
+
 def expect_no_conflict_files(d):
     expect_conflict_files(d,[])
 
-    
+
 @add_worker
 def creator(step):
-    
+
     reset_owncloud_account()
     reset_rundir()
 
@@ -129,7 +129,7 @@ def creator(step):
     step(8,'final check')
 
     final_check(d,shared)
-    expect_no_conflict_files(d) 
+    expect_no_conflict_files(d)
 
 @add_worker
 def winner(step):
@@ -164,7 +164,7 @@ def winner(step):
     step(8,'final check')
 
     final_check(d,shared)
-    expect_no_conflict_files(d) 
+    expect_no_conflict_files(d)
 
 
 # this is the loser which lost it's local state db after initial sync
@@ -217,7 +217,7 @@ def loser(step):
     if not rmLocalStateDB:
         expect_conflict_files(d, ['TEST_FILE_ADDED_BOTH.dat', 'TEST_FILE_MODIFIED_BOTH.dat' ])
     else:
-        expect_conflict_files(d, ['TEST_FILE_ADDED_BOTH.dat', 'TEST_FILE_MODIFIED_BOTH.dat', 
+        expect_conflict_files(d, ['TEST_FILE_ADDED_BOTH.dat', 'TEST_FILE_MODIFIED_BOTH.dat',
                                   'TEST_FILE_MODIFIED_LOSER.dat', 'TEST_FILE_MODIFIED_WINNER.dat']) # because the local and remote state is different and it is assumed that this is a conflict (FIXME: in the future timestamp-based last-restort check could improve this situation)
 
 @add_worker
@@ -231,7 +231,7 @@ def checker(step):
     step(8,'final check')
 
     final_check(d,shared)
-    expect_no_conflict_files(d) 
+    expect_no_conflict_files(d)
 
 
 def final_check(d,shared):
@@ -250,7 +250,7 @@ def final_check(d,shared):
         expect_content(os.path.join(d,'TEST_FILE_MODIFIED_LOSER.dat'), shared['md5_creator']) # in this case, a conflict is created on the loser and file on the server stays the same
 
     expect_content(os.path.join(d,'TEST_FILE_ADDED_WINNER.dat'), shared['md5_winner'])
-    expect_content(os.path.join(d,'TEST_FILE_MODIFIED_WINNER.dat'), shared['md5_winner']) 
+    expect_content(os.path.join(d,'TEST_FILE_MODIFIED_WINNER.dat'), shared['md5_winner'])
     expect_content(os.path.join(d,'TEST_FILE_ADDED_BOTH.dat'), shared['md5_winner'])     # a conflict on the loser, server not changed
     expect_content(os.path.join(d,'TEST_FILE_MODIFIED_BOTH.dat'), shared['md5_winner'])  # a conflict on the loser, server not changed
 
@@ -269,7 +269,7 @@ def final_check_1_5(d): # this logic applies for 1.5.x client and owncloud serve
     import glob
 
     list_files(d)
-    
+
     conflict_files = glob.glob(os.path.join(d,'*_conflict-*-*'))
 
     logger.debug('conflict files in %s: %s',d,conflict_files)
