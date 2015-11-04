@@ -44,7 +44,7 @@ OCS_PERMISSION_DELETE = 8
 OCS_PERMISSION_SHARE = 16
 OCS_PERMISSION_ALL = 31
 
-filesizeKB = int(config.get('test_filesizeKB',10))
+filesizeKB = int(config.get('test_filesizeKB',5000000))
 sharePermissions = config.get('test_sharePermissions', OCS_PERMISSION_ALL)
 numFilesToCreate = config.get('test_numFilesToCreate', 1)
 
@@ -52,17 +52,17 @@ testsets = [
     {
         'test_sharePermissions':OCS_PERMISSION_ALL,
         'test_numFilesToCreate':50,
-        'test_filesizeKB':20000
+        'test_filesizeKB':2000000
     },
     {
         'test_sharePermissions':OCS_PERMISSION_ALL,
         'test_numFilesToCreate':500,
-        'test_filesizeKB':2000
+        'test_filesizeKB':2000000
     },
     {
         'test_sharePermissions':OCS_PERMISSION_READ | OCS_PERMISSION_CREATE | OCS_PERMISSION_UPDATE,
         'test_numFilesToCreate':50,
-        'test_filesizeKB':20000
+        'test_filesizeKB':2000000
     },
 ]
 
